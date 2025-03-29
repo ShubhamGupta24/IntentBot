@@ -1,0 +1,162 @@
+2025-03-28 12:28:36,657 - INFO - Starting LinkedIn scraper
+2025-03-28 12:28:36,658 - INFO - Loading credentials from .env file
+2025-03-28 12:28:36,661 - INFO - Credentials loaded successfully
+2025-03-28 12:28:36,662 - INFO - Setting up Chrome driver
+2025-03-28 12:28:36,662 - INFO - Installing ChromeDriver using ChromeDriverManager
+2025-03-28 12:28:36,662 - INFO - ====== WebDriver manager ======
+2025-03-28 12:28:39,668 - INFO - Get LATEST chromedriver version for google-chrome
+2025-03-28 12:28:39,869 - INFO - Get LATEST chromedriver version for google-chrome
+2025-03-28 12:28:40,046 - INFO - Driver [C:\Users\Shubham Dutta\.wdm\drivers\chromedriver\win64\134.0.6998.165\chromedriver-win32/chromedriver.exe] found in cache
+2025-03-28 12:28:44,981 - INFO - Chrome driver setup completed successfully
+2025-03-28 12:28:44,982 - INFO - Navigating to LinkedIn homepage
+2025-03-28 12:28:49,719 - INFO - Attempting Google login
+2025-03-28 12:28:49,719 - INFO - Starting Google login process
+2025-03-28 12:28:49,762 - INFO - Switching to iframe for Google login
+2025-03-28 12:28:51,556 - INFO - Clicking 'Continue with Google' button
+2025-03-28 12:28:53,330 - INFO - Switching to Google login window
+2025-03-28 12:28:53,626 - INFO - Entering Google email
+2025-03-28 12:28:57,696 - INFO - Submitted email
+2025-03-28 12:29:01,696 - INFO - Entering Google password
+2025-03-28 12:29:02,692 - INFO - Submitted password
+2025-03-28 12:29:07,702 - INFO - Successfully logged into website using Google
+2025-03-28 12:29:07,702 - INFO - Starting search and scrape process
+2025-03-28 12:29:07,703 - INFO - Starting search for keyword: Artificial Intelligence
+2025-03-28 12:29:07,703 - INFO - Locating search box
+2025-03-28 12:29:36,905 - INFO - Submitted search query
+2025-03-28 12:29:39,905 - INFO - Clicking on Posts tab
+2025-03-28 12:30:00,068 - ERROR - Search failed: Message: 
+Stacktrace:
+	GetHandleVerifier [0x0044C7F3+24435]
+	(No symbol) [0x003D2074]
+	(No symbol) [0x002A06E3]
+	(No symbol) [0x002E8B39]
+	(No symbol) [0x002E8E8B]
+	(No symbol) [0x00331AC2]
+	(No symbol) [0x0030D804]
+	(No symbol) [0x0032F20A]
+	(No symbol) [0x0030D5B6]
+	(No symbol) [0x002DC54F]
+	(No symbol) [0x002DD894]
+	GetHandleVerifier [0x007570A3+3213347]
+	GetHandleVerifier [0x0076B0C9+3295305]
+	GetHandleVerifier [0x0076558C+3271948]
+	GetHandleVerifier [0x004E7360+658144]
+	(No symbol) [0x003DB27D]
+	(No symbol) [0x003D8208]
+	(No symbol) [0x003D83A9]
+	(No symbol) [0x003CAAC0]
+	BaseThreadInitThunk [0x750C7BA9+25]
+	RtlInitializeExceptionChain [0x76EBC2EB+107]
+	RtlClearBits [0x76EBC26F+191]
+
+2025-03-28 12:30:00,068 - ERROR - Search keyword failed
+2025-03-28 12:30:00,069 - INFO - Quitting driver
+2025-03-28 12:30:03,356 - INFO - Scraping process completed
+2025-03-28 12:52:42,992 - INFO - Starting LinkedIn scraper
+2025-03-28 12:52:42,993 - INFO - Loading credentials from .env file
+2025-03-28 12:52:42,996 - INFO - Credentials loaded successfully
+2025-03-28 12:52:42,996 - INFO - Setting up Chrome driver
+2025-03-28 12:52:42,996 - INFO - Installing ChromeDriver using ChromeDriverManager
+2025-03-28 12:52:42,997 - INFO - ====== WebDriver manager ======
+2025-03-28 12:52:49,110 - INFO - Get LATEST chromedriver version for google-chrome
+2025-03-28 12:52:50,154 - INFO - Get LATEST chromedriver version for google-chrome
+2025-03-28 12:52:50,655 - INFO - Driver [C:\Users\Shubham Dutta\.wdm\drivers\chromedriver\win64\134.0.6998.165\chromedriver-win32/chromedriver.exe] found in cache
+2025-03-28 12:52:55,367 - INFO - Chrome driver setup completed successfully
+2025-03-28 12:52:55,368 - INFO - Navigating to LinkedIn homepage
+2025-03-28 12:53:01,282 - INFO - Attempting Google login
+2025-03-28 12:53:01,282 - INFO - Starting Google login process
+2025-03-28 12:53:01,358 - INFO - Switching to iframe for Google login
+2025-03-28 12:53:03,863 - INFO - Clicking 'Continue with Google' button
+2025-03-28 12:53:06,258 - INFO - Switching to Google login window
+2025-03-28 12:53:06,382 - INFO - Entering Google email
+2025-03-28 12:53:11,802 - INFO - Submitted email
+2025-03-28 12:53:15,803 - INFO - Entering Google password
+2025-03-28 12:53:17,838 - INFO - Submitted password
+2025-03-28 12:53:23,404 - INFO - Successfully logged into website using Google
+2025-03-28 12:53:23,404 - INFO - Starting search and scrape process
+2025-03-28 12:53:23,404 - INFO - Starting search for keyword: Artificial Intelligence
+2025-03-28 12:53:23,404 - INFO - Locating search box
+2025-03-28 12:54:23,648 - INFO - Submitted search query
+2025-03-28 12:54:26,649 - INFO - Clicking on Posts tab
+2025-03-28 12:54:46,961 - ERROR - Search failed: Message: 
+Stacktrace:
+	GetHandleVerifier [0x008EC7F3+24435]
+	(No symbol) [0x00872074]
+	(No symbol) [0x007406E3]
+	(No symbol) [0x00788B39]
+	(No symbol) [0x00788E8B]
+	(No symbol) [0x007D1AC2]
+	(No symbol) [0x007AD804]
+	(No symbol) [0x007CF20A]
+	(No symbol) [0x007AD5B6]
+	(No symbol) [0x0077C54F]
+	(No symbol) [0x0077D894]
+	GetHandleVerifier [0x00BF70A3+3213347]
+	GetHandleVerifier [0x00C0B0C9+3295305]
+	GetHandleVerifier [0x00C0558C+3271948]
+	GetHandleVerifier [0x00987360+658144]
+	(No symbol) [0x0087B27D]
+	(No symbol) [0x00878208]
+	(No symbol) [0x008783A9]
+	(No symbol) [0x0086AAC0]
+	BaseThreadInitThunk [0x750C7BA9+25]
+	RtlInitializeExceptionChain [0x76EBC2EB+107]
+	RtlClearBits [0x76EBC26F+191]
+
+2025-03-28 12:54:46,961 - ERROR - Search keyword failed
+2025-03-28 12:54:46,961 - INFO - Quitting driver
+2025-03-28 12:54:50,049 - INFO - Scraping process completed
+2025-03-28 13:01:16,847 - INFO - Starting LinkedIn scraper
+2025-03-28 13:01:16,848 - INFO - Loading credentials from .env file
+2025-03-28 13:01:16,850 - INFO - Credentials loaded successfully
+2025-03-28 13:01:16,850 - INFO - Setting up Chrome driver
+2025-03-28 13:01:16,850 - INFO - Installing ChromeDriver using ChromeDriverManager
+2025-03-28 13:01:16,850 - INFO - ====== WebDriver manager ======
+2025-03-28 13:01:19,071 - INFO - Get LATEST chromedriver version for google-chrome
+2025-03-28 13:01:19,255 - INFO - Get LATEST chromedriver version for google-chrome
+2025-03-28 13:01:19,422 - INFO - Driver [C:\Users\Shubham Dutta\.wdm\drivers\chromedriver\win64\134.0.6998.165\chromedriver-win32/chromedriver.exe] found in cache
+2025-03-28 13:01:21,871 - INFO - Chrome driver setup completed successfully
+2025-03-28 13:01:21,871 - INFO - Navigating to LinkedIn homepage
+2025-03-28 13:01:25,682 - INFO - Attempting Google login
+2025-03-28 13:01:25,683 - INFO - Starting Google login process
+2025-03-28 13:01:25,686 - INFO - Switching to iframe for Google login
+2025-03-28 13:01:26,818 - INFO - Clicking 'Continue with Google' button
+2025-03-28 13:01:27,513 - INFO - Switching to Google login window
+2025-03-28 13:01:27,661 - INFO - Entering Google email
+2025-03-28 13:01:30,483 - INFO - Submitted email
+2025-03-28 13:01:34,484 - INFO - Entering Google password
+2025-03-28 13:01:34,789 - INFO - Submitted password
+2025-03-28 13:01:39,912 - INFO - Successfully logged into website using Google
+2025-03-28 13:01:39,912 - INFO - Starting search and scrape process
+2025-03-28 13:01:39,912 - INFO - Starting search for keyword: Artificial Intelligence
+2025-03-28 13:01:39,912 - INFO - Locating search box
+2025-03-28 13:01:51,928 - INFO - Submitted search query
+2025-03-28 13:01:54,928 - INFO - Clicking on Posts tab
+2025-03-28 13:02:14,965 - ERROR - Search failed: Message: 
+Stacktrace:
+	GetHandleVerifier [0x008EC7F3+24435]
+	(No symbol) [0x00872074]
+	(No symbol) [0x007406E3]
+	(No symbol) [0x00788B39]
+	(No symbol) [0x00788E8B]
+	(No symbol) [0x007D1AC2]
+	(No symbol) [0x007AD804]
+	(No symbol) [0x007CF20A]
+	(No symbol) [0x007AD5B6]
+	(No symbol) [0x0077C54F]
+	(No symbol) [0x0077D894]
+	GetHandleVerifier [0x00BF70A3+3213347]
+	GetHandleVerifier [0x00C0B0C9+3295305]
+	GetHandleVerifier [0x00C0558C+3271948]
+	GetHandleVerifier [0x00987360+658144]
+	(No symbol) [0x0087B27D]
+	(No symbol) [0x00878208]
+	(No symbol) [0x008783A9]
+	(No symbol) [0x0086AAC0]
+	BaseThreadInitThunk [0x750C7BA9+25]
+	RtlInitializeExceptionChain [0x76EBC2EB+107]
+	RtlClearBits [0x76EBC26F+191]
+
+2025-03-28 13:02:14,965 - ERROR - Search keyword failed
+2025-03-28 13:02:14,965 - INFO - Quitting driver
+2025-03-28 13:02:17,583 - INFO - Scraping process completed
