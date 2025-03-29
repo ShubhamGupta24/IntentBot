@@ -118,56 +118,76 @@ def search_keyword(driver):
         logging.error(f"Search failed: {str(e)}")
         return False
 
-def scrape_posts(driver):
+def scrape_posts(driver, scroll_delay=2.5):
     """
-    Scrape LinkedIn posts including author details from separate containers, content, and comments.
+    Scrolls continuously until no new posts are loaded, scraping all available content
     
     Args:
         driver: Selenium WebDriver instance
+        scroll_delay: Seconds to wait between scrolls (default 2.5)
         
     Returns:
         List of dictionaries containing post data (author details, content, comments)
     """
     
     # Initialize logging and data storage
-    logging.info("Starting comprehensive post scraping process")
+    logging.info("Starting infinite scroll post scraping")
     posts_data = []
     last_height = driver.execute_script("return document.body.scrollHeight")
-    
+    consecutive_no_change = 0
+    scroll_count = 0
+
     try:
-        # Scroll loop - attempts to load more content by scrolling
-        for scroll_attempt in range(3):  # Maximum of 3 scroll attempts
-            logging.info(f"Scrolling attempt {scroll_attempt + 1}")
+        # Infinite scroll loop
+        while True:
+            scroll_count += 1
+            logging.info(f"Scroll attempt #{scroll_count}")
             
-            # Wait for posts to load and locate all post content elements
+            # Scroll to bottom
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(scroll_delay)
+            
+            # Check for new content
+            new_height = driver.execute_script("return document.body.scrollHeight")
+            if new_height == last_height:
+                consecutive_no_change += 1
+                if consecutive_no_change >= 3:  # Confirm end of content
+                    logging.info("No new content detected for 3 attempts - stopping scroll")
+                    break
+            else:
+                consecutive_no_change = 0  # Reset counter if content changed
+            last_height = new_height
+
+            # Process current batch of posts
             post_content_elements = WebDriverWait(driver, 15).until(
                 EC.presence_of_all_elements_located((By.XPATH, 
                     "//div[contains(@class, 'update-components-text relative update-components-update-v2__commentary')]"))
             )
             
-            # Locate all author containers separately
             author_containers = driver.find_elements(By.XPATH,
                 "//div[contains(@class, 'update-components-actor')]")
             
-            # Verify we have matching counts
             if len(post_content_elements) != len(author_containers):
                 logging.warning(f"Mismatch found: {len(post_content_elements)} posts vs {len(author_containers)} authors")
             
             # Process each post with its corresponding author container
             for index, (content_div, author_div) in enumerate(zip(post_content_elements, author_containers)):
                 try:
+                    # Skip if we've already processed this post
+                    if any(post['Post Content'] == content_div.get_attribute("textContent").strip() 
+                           for post in posts_data):
+                        continue
+                        
                     post_data = {}
                     
                     # --- AUTHOR DETAILS EXTRACTION ---
                     try:
-                        # Extract profile URL if available
                         profile_link = author_div.find_element(
                             By.XPATH, ".//a[contains(@class, 'update-components-actor__meta-link')]"
                         ).get_attribute("href")
                     except NoSuchElementException:
                         profile_link = "N/A"
                     
-                    # Extract author name
                     try:
                         author_name = author_div.find_element(
                             By.XPATH, ".//span[contains(@class, 'update-components-actor__name')]"
@@ -177,7 +197,6 @@ def scrape_posts(driver):
                     
                     # --- POST CONTENT EXTRACTION ---
                     try:
-                        # Get all text content including nested elements
                         full_text = content_div.get_attribute("textContent")
                         post_text = ' '.join(full_text.split()).strip()
                     except Exception as e:
@@ -187,17 +206,14 @@ def scrape_posts(driver):
                     # --- COMMENT EXTRACTION ---
                     comments = []
                     try:
-                        # Find the parent container that holds both post and comments
                         parent_container = content_div.find_element(
                             By.XPATH, "./ancestor::div[contains(@class, 'update-components-update-v2')]")
                         
-                        # Click comment button
                         comment_button = parent_container.find_element(
                             By.XPATH, ".//button[contains(@aria-label, 'Comment')]")
                         driver.execute_script("arguments[0].click();", comment_button)
                         time.sleep(1.5)
                         
-                        # Extract comments
                         comment_elements = parent_container.find_elements(
                             By.XPATH, ".//div[contains(@class, 'comments-comment-item')]")
                         
@@ -220,32 +236,21 @@ def scrape_posts(driver):
                             "profile_url": profile_link
                         },
                         "Post Content": post_text,
-                        "Comments": comments if comments else "No comments"
+                        "Comments": comments if comments else "No comments",
+                        "scroll_loaded_on": scroll_count
                     })
                     
                 except Exception as e:
-                    logging.error(f"Error processing post {index + 1}: {str(e)}")
+                    logging.error(f"Error processing post: {str(e)}")
                     continue
 
-            # --- SCROLLING MECHANISM ---
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(2.5)  # Adjusted wait time
-            
-            new_height = driver.execute_script("return document.body.scrollHeight")
-            if new_height == last_height:
-                logging.info("Reached end of page, stopping scrolling")
-                break
-            last_height = new_height
-
-        logging.info(f"Successfully scraped {len(posts_data)} posts with author details")
+        logging.info(f"Scraping complete. Total posts collected: {len(posts_data)}")
         return posts_data
     
     except Exception as e:
-        logging.error(f"Error during post scraping: {str(e)}", exc_info=True)
+        logging.error(f"Fatal error during scraping: {str(e)}", exc_info=True)
         return posts_data
-    
 
-    
 def main():
     """Main execution function"""
     logging.info("Starting LinkedIn scraper")
