@@ -81,8 +81,8 @@ def setup_driver():
     print("Setting up Chrome driver...")
     chrome_options = uc.ChromeOptions()
 
-    chrome_options.add_argument(r'--user-data-dir=C:\Users\LENOVO\AppData\Local\Google\Chrome\User Data')
-    chrome_options.add_argument(r'--profile-directory=Profile 7')
+    chrome_options.add_argument(r'--user-data-dir=C:\Users\Shubham Dutta\AppData\Local\Google\Chrome\User Data')
+    chrome_options.add_argument(r'--profile-directory=Profile 2')
 
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
