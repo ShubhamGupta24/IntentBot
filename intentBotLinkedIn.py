@@ -41,7 +41,7 @@ def setup_google_sheets():
 
         # Add credentials to the account
         credentials = ServiceAccountCredentials.from_json_keyfile_name(
-            'google-sheets-bot@affable-cacao-454507-a2.iam.gserviceaccount.com', scope)  # Make sure this file exists in your directory
+            'gspread-credentials.json', scope)  # Make sure this file exists in your directory
 
         # Authorize the clientsheet
         client = gspread.authorize(credentials)
@@ -53,12 +53,12 @@ def setup_google_sheets():
 
 def upload_to_sheets(client, data_df, sheet_name, spreadsheet_key=None):
     """
-    Upload DataFrame to Google Sheets
+    Upload DataFrame to Google Sheets and return the full shareable link
     """
     try:
         if not isinstance(data_df, pd.DataFrame) or data_df.empty:
             print(f"No data to upload to {sheet_name}")
-            return
+            return None
             
         print(f"Uploading data to Google Sheets: {sheet_name}")
         
@@ -86,12 +86,19 @@ def upload_to_sheets(client, data_df, sheet_name, spreadsheet_key=None):
         # Update the sheet
         worksheet.update(data_to_upload)
         
+        # Generate the shareable link
+        sheet_link = f"https://docs.google.com/spreadsheets/d/{spreadsheet.id}/edit#gid={worksheet.id}"
+        
         print(f"Successfully uploaded {len(data_df)} rows to {sheet_name}")
-        return spreadsheet.id
+        print(f"Sheet link: {sheet_link}")
+        
+        return sheet_link
         
     except Exception as e:
         print(f"Error uploading to Google Sheets: {str(e)}")
         return None
+    
+
 
 def setup_driver():
     print("Setting up Chrome driver...")
@@ -181,8 +188,8 @@ def safe_click(driver, element):
             except Exception:
                 return False
 
-def scrape_linkedin_post_comments(post_url):
-    """Scrape comments for a specific LinkedIn post."""
+def scrape_linkedin_post_comments(post_url, max_comments=50):
+    """Scrape comments for a specific LinkedIn post with enhanced comment loading."""
     driver = setup_driver()
     print(f"Opening LinkedIn post URL: {post_url}")
     
@@ -192,114 +199,246 @@ def scrape_linkedin_post_comments(post_url):
         time.sleep(random.uniform(4, 7))
         
         comments_data = []
+        comment_ids_seen = set()  # Track comment IDs to avoid duplicates
         
-        # Check if there are comments and click to expand if needed
-        see_more_buttons = safe_find_elements(driver, By.XPATH, 
-            '//button[contains(@class, "comments-comments-list__show-previous") or contains(text(), "Load more comments")]')
-        
-        for button in see_more_buttons[:3]:  # Limit to 3 "load more" clicks
-            if safe_click(driver, button):
-                time.sleep(random.uniform(2, 4))
-        
-        # Multiple XPath options for comments
-        comment_xpath_options = [
-            '//article[contains(@class, "comments-comment-item")]',
-            '//div[contains(@class, "comments-comment-item")]',
-            '//div[contains(@class, "scaffold-finite-scroll__content")]//div[contains(@class, "comments-comment-item")]',
-            '//div[contains(@data-test-id, "comments-container")]//article'
+        # Try to expand all comments first
+        expand_comments_xpath_options = [
+            '//button[contains(@class, "comments-comment-box__expand-btn") or contains(text(), "View comments")]',
+            '//button[contains(text(), "View") and contains(text(), "comments")]',
+            '//span[contains(text(), "comments")]/ancestor::button'
         ]
         
-        comment_elements = []
-        for xpath in comment_xpath_options:
-            comment_elements = safe_find_elements(driver, By.XPATH, xpath)
-            if comment_elements:
-                break
+        for xpath in expand_comments_xpath_options:
+            expand_buttons = safe_find_elements(driver, By.XPATH, xpath)
+            for button in expand_buttons:
+                if button.is_displayed():
+                    try:
+                        print("Found 'View comments' button, clicking to expand comments section...")
+                        safe_click(driver, button)
+                        time.sleep(random.uniform(2, 4))
+                    except Exception as e:
+                        print(f"Error clicking expand comments button: {str(e)}")
         
-        for comment in comment_elements:
-            comment_info = {}
+        # Now try to load more comments - multiple approaches
+        load_more_attempts = 0
+        max_load_attempts = 10  # Try up to 10 times to load more comments
+        consecutive_no_new = 0
+        max_consecutive_no_new = 3  # Give up after 3 tries with no new comments
+        
+        print("Starting to load more comments...")
+        
+        while load_more_attempts < max_load_attempts and consecutive_no_new < max_consecutive_no_new and len(comments_data) < max_comments:
+            load_more_attempts += 1
             
-            # Multiple XPath options for profile info
-            profile_xpath_options = [
-                './/a[contains(@class, "comments-post-meta__actor-link")]',
-                './/a[contains(@class, "tap-target")]',
-                './/a[contains(@class, "comment-actor")]',
-                './/a[contains(@href, "/in/")]'
+            # Current count of comments before loading more
+            current_comment_count = len(comments_data)
+            
+            # Multiple XPath options for "Load more comments" buttons
+            load_more_buttons_xpath = [
+                '//button[contains(@class, "comments-comments-list__show-previous") or contains(text(), "Load more comments")]',
+                '//button[contains(@class, "comments-comments-list__load-more-comments-button")]',
+                '//button[contains(text(), "Load") and contains(text(), "comments")]',
+                '//button[contains(text(), "Show previous comments")]',
+                '//span[contains(text(), "previous comments")]/ancestor::button',
+                '//button[contains(@class, "artdeco-button") and contains(@class, "comments")]'
             ]
             
-            profile_element = None
-            for xpath in profile_xpath_options:
-                profile_elements = comment.find_elements(By.XPATH, xpath)
-                if profile_elements:
-                    profile_element = profile_elements[0]
+            load_button_clicked = False
+            
+            # Try each XPath for load more buttons
+            for xpath in load_more_buttons_xpath:
+                buttons = safe_find_elements(driver, By.XPATH, xpath)
+                for button in buttons:
+                    if button.is_displayed():
+                        try:
+                            print(f"Attempting to load more comments (attempt {load_more_attempts}/{max_load_attempts})...")
+                            safe_click(driver, button)
+                            time.sleep(random.uniform(2, 4))
+                            load_button_clicked = True
+                            break
+                        except Exception as e:
+                            print(f"Error clicking load more button: {str(e)}")
+                
+                if load_button_clicked:
                     break
             
-            if profile_element:
-                comment_info["Profile Link"] = profile_element.get_attribute('href')
+            # If no "load more" button was found or clicked, try alternative approach
+            if not load_button_clicked:
+                print("No 'Load more' button found. Trying alternative approaches...")
                 
-                # Get the author name more reliably
-                name_xpath_options = [
-                    './/span[contains(@class, "comments-post-meta__name")]',
-                    './/span[contains(@class, "feed-shared-actor__name")]',
-                    './/span[contains(@class, "hoverable-link-text")]',
-                    './/span[contains(@aria-hidden, "true")]'
+                # Try to scroll to potential hidden buttons
+                try:
+                    # Scroll to the bottom of the comments section
+                    comment_sections = safe_find_elements(driver, By.XPATH, 
+                        '//div[contains(@class, "comments-comments-list")]')
+                    
+                    if comment_sections:
+                        driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'end'});", 
+                                              comment_sections[0])
+                        time.sleep(random.uniform(1, 2))
+                except Exception as e:
+                    print(f"Error scrolling to comments section: {str(e)}")
+            
+            # Multiple XPath options for comments
+            comment_xpath_options = [
+                '//article[contains(@class, "comments-comment-item")]',
+                '//div[contains(@class, "comments-comment-item")]',
+                '//div[contains(@class, "scaffold-finite-scroll__content")]//div[contains(@class, "comments-comment-item")]',
+                '//div[contains(@data-test-id, "comments-container")]//article',
+                '//div[contains(@class, "comments-comment-social-activity")]//ancestor::article'
+            ]
+            
+            comment_elements = []
+            for xpath in comment_xpath_options:
+                comment_elements = safe_find_elements(driver, By.XPATH, xpath)
+                if comment_elements:
+                    print(f"Found {len(comment_elements)} comment elements")
+                    break
+            
+            new_comments_found = 0
+            
+            for comment in comment_elements:
+                if len(comments_data) >= max_comments:
+                    print(f"Reached maximum comments limit ({max_comments})")
+                    break
+                
+                comment_info = {}
+                
+                # Try to get a unique identifier for the comment
+                comment_id = None
+                try:
+                    comment_id = comment.get_attribute('id') or comment.get_attribute('data-id')
+                    if not comment_id:
+                        # If no ID, try to create a composite key from the comment's text
+                        comment_text_elems = comment.find_elements(By.XPATH, './/p')
+                        if comment_text_elems:
+                            comment_text = comment_text_elems[0].text.strip()
+                            # Use just first 50 chars as part of ID to avoid issues with long comments
+                            comment_id = comment_text[:50] if comment_text else None
+                except:
+                    pass
+                
+                # Skip this comment if we've already processed it
+                if comment_id and comment_id in comment_ids_seen:
+                    continue
+                
+                # Multiple XPath options for profile info
+                profile_xpath_options = [
+                    './/a[contains(@class, "comments-post-meta__actor-link")]',
+                    './/a[contains(@class, "tap-target")]',
+                    './/a[contains(@class, "comment-actor")]',
+                    './/a[contains(@href, "/in/")]'
                 ]
                 
-                author_name = ""
-                for name_xpath in name_xpath_options:
-                    name_elements = comment.find_elements(By.XPATH, name_xpath)
-                    if name_elements:
-                        author_name = name_elements[0].text.strip()
+                profile_element = None
+                for xpath in profile_xpath_options:
+                    profile_elements = comment.find_elements(By.XPATH, xpath)
+                    if profile_elements:
+                        profile_element = profile_elements[0]
                         break
                 
-                # If we got a name, use it, otherwise use the profile element text
-                if author_name:
-                    comment_info["Profile Handle"] = author_name
-                else:
-                    comment_info["Profile Handle"] = profile_element.text.strip()
+                if profile_element:
+                    comment_info["Profile Link"] = profile_element.get_attribute('href')
+                    
+                    # Get the author name more reliably
+                    name_xpath_options = [
+                        './/span[contains(@class, "comments-post-meta__name")]',
+                        './/span[contains(@class, "feed-shared-actor__name")]',
+                        './/span[contains(@class, "hoverable-link-text")]',
+                        './/span[contains(@aria-hidden, "true")]',
+                        './/span[contains(@class, "actor__name")]'
+                    ]
+                    
+                    author_name = ""
+                    for name_xpath in name_xpath_options:
+                        name_elements = comment.find_elements(By.XPATH, name_xpath)
+                        if name_elements:
+                            author_name = name_elements[0].text.strip()
+                            break
+                    
+                    # If we got a name, use it, otherwise use the profile element text
+                    if author_name:
+                        comment_info["Profile Handle"] = author_name
+                    else:
+                        comment_info["Profile Handle"] = profile_element.text.strip()
+                
+                # Multiple XPath options for comment text
+                text_xpath_options = [
+                    './/div[contains(@class, "comments-comment-item__main-content")]',
+                    './/div[contains(@class, "feed-shared-text")]',
+                    './/span[contains(@class, "comments-comment-item__main-content")]',
+                    './/div[contains(@class, "comments-comment-text-container")]',
+                    './/p'
+                ]
+                
+                for xpath in text_xpath_options:
+                    text_elements = comment.find_elements(By.XPATH, xpath)
+                    if text_elements:
+                        comment_info["Comment Text"] = text_elements[0].text.strip()
+                        break
+                
+                # Multiple XPath options for timestamp
+                time_xpath_options = [
+                    './/span[contains(@class, "comments-comment-item__timestamp")]',
+                    './/time',
+                    './/span[contains(@class, "feed-shared-actor__sub-description")]',
+                    './/span[contains(@class, "artdeco-text-duration")]',
+                    './/span[contains(@class, "comments-comment-item__time-string")]'
+                ]
+                
+                for xpath in time_xpath_options:
+                    time_elements = comment.find_elements(By.XPATH, xpath)
+                    if time_elements:
+                        raw_timestamp = time_elements[0].text
+                        comment_info["Timestamp"] = clean_timestamp(raw_timestamp)
+                        break
+                
+                if "Comment Text" in comment_info:
+                    comment_info["Original Post URL"] = post_url
+                    
+                    # Add to our dataset only if this is a new comment
+                    if comment_id:
+                        comment_ids_seen.add(comment_id)
+                    
+                    comments_data.append(comment_info)
+                    new_comments_found += 1
             
-            # Multiple XPath options for comment text
-            text_xpath_options = [
-                './/div[contains(@class, "comments-comment-item__main-content")]',
-                './/div[contains(@class, "feed-shared-text")]',
-                './/span[contains(@class, "comments-comment-item__main-content")]',
-                './/div[contains(@class, "comments-comment-text-container")]',
-                './/p'
-            ]
+            print(f"Found {new_comments_found} new comments in this load attempt")
             
-            for xpath in text_xpath_options:
-                text_elements = comment.find_elements(By.XPATH, xpath)
-                if text_elements:
-                    comment_info["Comment Text"] = text_elements[0].text.strip()
-                    break
+            # Check if we found any new comments
+            if new_comments_found == 0:
+                consecutive_no_new += 1
+                print(f"No new comments found. Consecutive attempts with no new comments: {consecutive_no_new}/{max_consecutive_no_new}")
+            else:
+                consecutive_no_new = 0  # Reset the counter
             
-            # Multiple XPath options for timestamp
-            time_xpath_options = [
-                './/span[contains(@class, "comments-comment-item__timestamp")]',
-                './/time',
-                './/span[contains(@class, "feed-shared-actor__sub-description")]',
-                './/span[contains(@class, "artdeco-text-duration")]'
-            ]
-            
-            for xpath in time_xpath_options:
-                time_elements = comment.find_elements(By.XPATH, xpath)
-                if time_elements:
-                    raw_timestamp = time_elements[0].text
-                    comment_info["Timestamp"] = clean_timestamp(raw_timestamp)
-                    break
-            
-            if "Comment Text" in comment_info:
-                comment_info["Original Post URL"] = post_url
-                comments_data.append(comment_info)
-            
-            # Limit the number of comments per post
-            if len(comments_data) >= 10:
+            # If we haven't found new comments and no buttons were clicked, try scrolling
+            if new_comments_found == 0 and not load_button_clicked:
+                print("Trying to scroll the page to reveal more comments...")
+                try:
+                    # Scroll down a bit
+                    driver.execute_script("window.scrollBy(0, 500);")
+                    time.sleep(1)
+                    # Scroll back up
+                    driver.execute_script("window.scrollBy(0, -300);")
+                    time.sleep(random.uniform(2, 3))
+                except Exception as e:
+                    print(f"Error during scroll attempt: {str(e)}")
+                
+            # If we've loaded a reasonable number of comments, break out
+            if len(comments_data) >= max_comments:
+                print(f"Reached target of {max_comments} comments. Stopping.")
                 break
                 
     except Exception as e:
         print(f"Error scraping comments: {str(e)}")
+    finally:
+        driver.quit()
     
-    driver.quit()
+    print(f"Total comments scraped: {len(comments_data)}")
     return comments_data
+
+
 
 def extract_profile_handle(driver, post):
     """Extract profile handle with multiple approaches and better error handling"""
@@ -422,9 +561,11 @@ def scrape_linkedin_posts(keyword, num_posts=100):
         
         posts_data = []
         last_height = driver.execute_script("return document.body.scrollHeight")
-        no_new_posts_count = 0
+        post_ids_seen = set()  # Track post IDs to avoid duplicates
+        consecutive_no_new_posts = 0
         scroll_attempts = 0
-        max_scroll_attempts = 30
+        max_scroll_attempts = 40  # Increased from 30 for more persistence
+        max_consecutive_no_new = 5  # Stop after 5 consecutive scrolls with no new posts
         
         # Multiple XPath options for finding posts
         post_xpath_options = [
@@ -434,8 +575,11 @@ def scrape_linkedin_posts(keyword, num_posts=100):
             '//div[contains(@class, "search-results__cluster-content")]//div[contains(@class, "feed-shared")]'
         ]
 
-        while len(posts_data) < num_posts and scroll_attempts < max_scroll_attempts and no_new_posts_count < 5:
+        print(f"Beginning infinite scroll to collect {num_posts} posts...")
+        
+        while len(posts_data) < num_posts and scroll_attempts < max_scroll_attempts and consecutive_no_new_posts < max_consecutive_no_new:
             scroll_attempts += 1
+            print(f"Scroll attempt {scroll_attempts}/{max_scroll_attempts}, posts found: {len(posts_data)}/{num_posts}")
             
             # Try different XPath selectors for posts
             post_elements = []
@@ -444,7 +588,7 @@ def scrape_linkedin_posts(keyword, num_posts=100):
                 if post_elements:
                     break
             
-            initial_count = len(posts_data)
+            initial_post_count = len(posts_data)
             
             for post in post_elements:
                 if len(posts_data) >= num_posts:
@@ -479,6 +623,7 @@ def scrape_linkedin_posts(keyword, num_posts=100):
                     './/div[contains(@class, "feed-shared-control-menu")]//ancestor::div[contains(@data-urn, "urn:li:activity")]'
                 ]
                 
+                post_id = None
                 for xpath in url_xpath_options:
                     url_elements = post.find_elements(By.XPATH, xpath)
                     if url_elements:
@@ -489,10 +634,18 @@ def scrape_linkedin_posts(keyword, num_posts=100):
                                 if urn and ":" in urn:
                                     activity_id = urn.split(":")[-1]
                                     post_info["DocURL"] = f"https://www.linkedin.com/feed/update/urn:li:activity:{activity_id}"
+                                    post_id = activity_id
                             except:
                                 pass
                         else:
-                            post_info["DocURL"] = url_elements[0].get_attribute('href')
+                            href = url_elements[0].get_attribute('href')
+                            post_info["DocURL"] = href
+                            # Try to extract ID from the URL
+                            if "activity" in href:
+                                try:
+                                    post_id = href.split("activity:")[1].split("?")[0]
+                                except:
+                                    pass
                         break
                 
                 # Try to get timestamp with multiple selectors
@@ -510,46 +663,86 @@ def scrape_linkedin_posts(keyword, num_posts=100):
                         post_info["Timestamp"] = clean_timestamp(raw_timestamp)
                         break
                 
-                # Check if we have enough data and this post is unique
+                # Check if we have enough data and this post is unique by ID or URL
                 if "Post" in post_info and "DocURL" in post_info:
-                    # Check if this post is already in our data to avoid duplicates
-                    is_duplicate = False
-                    for existing_post in posts_data:
-                        if existing_post.get("DocURL") == post_info.get("DocURL"):
-                            is_duplicate = True
-                            break
+                    # Use post_id if available, otherwise use URL for deduplication
+                    dedup_key = post_id if post_id else post_info.get("DocURL", "")
                     
-                    if not is_duplicate:
+                    if dedup_key and dedup_key not in post_ids_seen:
+                        post_ids_seen.add(dedup_key)
                         posts_data.append(post_info)
-                        print(f"Found post {len(posts_data)}/{num_posts}")
+                        print(f"Found new post {len(posts_data)}/{num_posts}")
             
-            # Scroll down to load more posts with randomized scroll amount
-            scroll_amount = random.randint(300, 1000)
-            driver.execute_script(f"window.scrollBy(0, {scroll_amount});")
-            time.sleep(random.uniform(2, 4))
-            
-            # Check if new posts were found in this iteration
-            if len(posts_data) == initial_count:
-                no_new_posts_count += 1
+            # Check if new posts were found in this scroll
+            if len(posts_data) > initial_post_count:
+                consecutive_no_new_posts = 0  # Reset counter when we find new posts
             else:
-                no_new_posts_count = 0
+                consecutive_no_new_posts += 1
+                print(f"No new posts found on scroll {scroll_attempts}. Consecutive no new posts: {consecutive_no_new_posts}/{max_consecutive_no_new}")
+            
+            # Advanced scrolling technique - mix of scroll positions for better coverage
+            scrolling_technique = random.choice([
+                # Smooth scroll by smaller increments
+                lambda: driver.execute_script(f"window.scrollBy(0, {random.randint(300, 700)});"),
+                # Jump to random position
+                lambda: driver.execute_script(f"window.scrollTo(0, {random.randint(last_height//4, last_height)});"),
+                # Scroll to bottom
+                lambda: driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            ])
+            
+            scrolling_technique()
+            time.sleep(random.uniform(2.5, 5))  # Longer wait times for content to load
             
             new_height = driver.execute_script("return document.body.scrollHeight")
+            
+            # If scroll height hasn't changed, try to click "Show more" buttons
             if new_height == last_height:
-                # If no new content loaded after scrolling, try to click "Show more" button if exists
-                try:
-                    show_more_buttons = safe_find_elements(driver, By.XPATH, 
-                        '//button[contains(@class, "scaffold-finite-scroll__load-button") or contains(text(), "Show more results")]')
+                show_more_xpath_options = [
+                    '//button[contains(@class, "scaffold-finite-scroll__load-button")]',
+                    '//button[contains(text(), "Show more results")]',
+                    '//button[contains(text(), "Load more")]',
+                    '//span[contains(text(), "Show more")]/ancestor::button',
+                    '//div[contains(@class, "feed-shared-show-more")]'
+                ]
+                
+                button_clicked = False
+                for xpath in show_more_xpath_options:
+                    show_more_buttons = safe_find_elements(driver, By.XPATH, xpath)
+                    for button in show_more_buttons:
+                        if button.is_displayed():
+                            try:
+                                print("Found 'Show more' button, attempting to click...")
+                                safe_click(driver, button)
+                                time.sleep(random.uniform(3, 6))  # Longer wait after clicking a button
+                                button_clicked = True
+                                break
+                            except Exception as e:
+                                print(f"Failed to click 'Show more' button: {str(e)}")
                     
-                    if show_more_buttons:
-                        safe_click(driver, show_more_buttons[0])
-                        time.sleep(random.uniform(3, 5))
-                    else:
-                        no_new_posts_count += 1
-                except Exception:
-                    no_new_posts_count += 1
+                    if button_clicked:
+                        break
+                
+                # If no button was found or clicked, try JavaScript to trigger loading more content
+                if not button_clicked:
+                    try:
+                        # Try to scroll in different ways to trigger lazy loading
+                        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                        time.sleep(1)
+                        driver.execute_script("window.scrollTo(0, document.body.scrollHeight - 500);")
+                        time.sleep(1)
+                        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                        time.sleep(random.uniform(2, 4))
+                        new_height = driver.execute_script("return document.body.scrollHeight")
+                    except Exception as e:
+                        print(f"Error during alternative scroll: {str(e)}")
             
             last_height = new_height
+            
+            # Break if we've been stuck with the same height and no new posts for too long
+            if consecutive_no_new_posts >= max_consecutive_no_new:
+                print(f"Reached {consecutive_no_new_posts} consecutive scrolls with no new posts. Stopping scroll.")
+        
+        print(f"Finished scrolling. Total posts found: {len(posts_data)}/{num_posts}")
         
     except Exception as e:
         print(f"Error in scrape_linkedin_posts: {str(e)}")
@@ -558,6 +751,9 @@ def scrape_linkedin_posts(keyword, num_posts=100):
     
     print(f"Scraped {len(posts_data)} LinkedIn posts.")
     return posts_data
+
+
+
 
 def analyze_posts(posts_data):
     results = []
@@ -634,7 +830,7 @@ def main():
         # Get spreadsheet key from environment variable or use default
         spreadsheet_key = os.environ.get('GOOGLE_SPREADSHEET_KEY', None)
         
-        keyword = "Artificial Intelligence"
+        keyword = "Critical Thinking Artificial Intelligence"
         num_posts = 5  # Start with a small number to test
         
         posts_data = scrape_linkedin_posts(keyword, num_posts=num_posts)
@@ -655,9 +851,11 @@ def main():
             print(f"LinkedIn posts analysis complete! Saved to {posts_csv_filename}")
             
             # Upload to Google Sheets
+            posts_sheet_link = None
             if sheets_client:
-                spreadsheet_key = upload_to_sheets(sheets_client, posts_df, "LinkedIn Posts", spreadsheet_key)
-                print(f"Posts data uploaded to Google Sheets with ID: {spreadsheet_key}")
+                posts_sheet_link = upload_to_sheets(sheets_client, posts_df, "LinkedIn Posts", spreadsheet_key)
+                if posts_sheet_link:
+                    print(f"Posts data uploaded to Google Sheets. Access at: {posts_sheet_link}")
             
             # Scrape and save comments data
             all_comments = []
@@ -679,9 +877,17 @@ def main():
                 print(f"Total comments scraped: {len(all_comments)}")
                 
                 # Upload to Google Sheets
-                if sheets_client and spreadsheet_key:
-                    upload_to_sheets(sheets_client, comments_df, "LinkedIn Comments", spreadsheet_key)
-                    print(f"Comments data uploaded to Google Sheets with ID: {spreadsheet_key}")
+                comments_sheet_link = None
+                if sheets_client and posts_sheet_link:
+                    # Extract spreadsheet key from the posts sheet link
+                    try:
+                        spreadsheet_key = posts_sheet_link.split('/d/')[1].split('/edit')[0]
+                    except:
+                        spreadsheet_key = None
+                        
+                    comments_sheet_link = upload_to_sheets(sheets_client, comments_df, "LinkedIn Comments", spreadsheet_key)
+                    if comments_sheet_link:
+                        print(f"Comments data uploaded to Google Sheets. Access at: {comments_sheet_link}")
             else:
                 print("No comments were found or scraped.")
         else:
@@ -692,5 +898,8 @@ def main():
         
     print("LinkedIn scraper completed.")
 
+
+    
 if __name__ == "__main__":
     main()
+
